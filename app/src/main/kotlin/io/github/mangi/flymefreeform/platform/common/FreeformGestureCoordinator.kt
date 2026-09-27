@@ -380,7 +380,7 @@ internal class FreeformGestureCoordinator(
         val generation = pointerGeneration
         activeEnvironmentApproved = false
         gestureEngine.cancel()
-        removeOverlay()
+        // 收层交给悬浮层自己决定：粒子溶解要播完才移除，没有溶解时它会立刻回调。
         handler.post {
             if (generation == pointerGeneration) launchCommittedApp(entry)
         }
@@ -445,6 +445,18 @@ internal class FreeformGestureCoordinator(
     }
 
     override fun onDismissRequested() {
+        endOverlaySession()
+    }
+
+    override fun onDissolveFinished() {
+        endOverlaySession()
+    }
+
+    override fun onDissolveFailed(throwable: Throwable) {
+        logOverlayFailure("SYSTEM_DISSOLVE_FAILED", throwable)
+    }
+
+    private fun endOverlaySession() {
         activeEnvironmentApproved = false
         gestureEngine.cancel()
         removeOverlay()
