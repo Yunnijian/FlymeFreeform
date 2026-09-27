@@ -5,6 +5,8 @@ import io.github.libxposed.api.XposedModule
 import io.github.mangi.flymefreeform.hook.ModuleEnvironmentState
 import io.github.mangi.flymefreeform.hook.ProcessConfiguration
 import io.github.mangi.flymefreeform.platform.FreeformPlatform
+import io.github.mangi.flymefreeform.platform.GameModeSignal
+import io.github.mangi.flymefreeform.platform.SettingsNamespace
 import io.github.mangi.flymefreeform.platform.SystemServerAnchor
 import io.github.mangi.flymefreeform.platform.common.BuiltInMorePanelDelegate
 import io.github.mangi.flymefreeform.platform.common.FreeformPlatformComponents
@@ -31,6 +33,14 @@ internal object HyperOsPlatform : FreeformPlatform {
 
     override val systemUiApplicationClassName: String =
         "com.android.systemui.application.impl.SystemUIApplicationImpl"
+
+    /** 游戏加速生效时由系统写入的键；键缺失只会静默不生效，不会误暂停。 */
+    override val gameModeSignal: GameModeSignal =
+        GameModeSignal(
+            namespace = SettingsNamespace.Secure,
+            key = "gb_boosting",
+            activeValue = 1,
+        )
 
     override fun installLauncherHooks(
         module: XposedModule,

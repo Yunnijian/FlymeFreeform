@@ -7,6 +7,8 @@ import io.github.mangi.flymefreeform.hook.ModuleEnvironmentState
 import io.github.mangi.flymefreeform.hook.OutsideTapCloseHookInstaller
 import io.github.mangi.flymefreeform.hook.ProcessConfiguration
 import io.github.mangi.flymefreeform.platform.FreeformPlatform
+import io.github.mangi.flymefreeform.platform.GameModeSignal
+import io.github.mangi.flymefreeform.platform.SettingsNamespace
 import io.github.mangi.flymefreeform.platform.SystemServerAnchor
 import io.github.mangi.flymefreeform.platform.common.FreeformPlatformComponents
 import io.github.mangi.flymefreeform.platform.common.RadialIconShaper
@@ -33,6 +35,13 @@ internal object ColorOsPlatform : FreeformPlatform {
         )
 
     override val systemUiApplicationClassName: String = "com.android.systemui.SystemUIApplication"
+
+    override val gameModeSignal: GameModeSignal =
+        GameModeSignal(
+            namespace = SettingsNamespace.Global,
+            key = "debug_gamemode_value",
+            activeValue = 1,
+        )
 
     override fun installLauncherHooks(
         module: XposedModule,

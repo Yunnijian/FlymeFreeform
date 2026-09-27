@@ -12,6 +12,15 @@ internal data class SystemServerAnchor(
     val parameterCount: Int,
 )
 
+/** 系统「游戏模式生效」信号：设置命名空间 + 键名 + 生效值。 */
+internal data class GameModeSignal(
+    val namespace: SettingsNamespace,
+    val key: String,
+    val activeValue: Int,
+)
+
+internal enum class SettingsNamespace { Global, System, Secure }
+
 /** 各系统平台的自由窗能力描述；分派只发生在 PlatformRouting。 */
 internal interface FreeformPlatform {
     val id: String
@@ -26,6 +35,9 @@ internal interface FreeformPlatform {
 
     /** SystemUI 中承载角落热区窗口的 Application 类。 */
     val systemUiApplicationClassName: String
+
+    /** 游戏模式信号；缺失的键不会误触发暂停。 */
+    val gameModeSignal: GameModeSignal
 
     /** 桌面进程内的平台钩子。 */
     fun installLauncherHooks(
