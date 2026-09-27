@@ -3,14 +3,10 @@ package io.github.mangi.flymefreeform.hook
 import android.util.Log
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
-import io.github.mangi.flymefreeform.platform.coloros.COLOROS_CRITICAL_PACKAGES
-import io.github.mangi.flymefreeform.platform.coloros.ColorOsFreeformLauncher
-import io.github.mangi.flymefreeform.platform.coloros.ColorOsRadialIconRenderer
-import io.github.mangi.flymefreeform.platform.coloros.ColorOsSidebarClient
-import io.github.mangi.flymefreeform.platform.coloros.ColorOsSystemWindowAccess
+import io.github.mangi.flymefreeform.platform.FreeformPlatform
+import io.github.mangi.flymefreeform.platform.PlatformRouting
 import io.github.mangi.flymefreeform.platform.common.FreeformGestureCoordinator
-import io.github.mangi.flymefreeform.platform.common.FreeformPlatformComponents
-import io.github.mangi.flymefreeform.platform.common.RadialIconShaper
+import io.github.mangi.flymefreeform.platform.common.findMethod
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal class SystemServerHookInstaller(
@@ -23,20 +19,30 @@ internal class SystemServerHookInstaller(
     }
 
     fun install(classLoader: ClassLoader) {
-        OutsideTapCloseHookInstaller(module, configuration, environment).install(classLoader)
-        HandleSwipeUpHookInstaller(module, configuration, environment).install(classLoader)
+        val platform = PlatformRouting.current(classLoader)
+        platform.installSystemServerEnhancements(module, configuration, environment, classLoader)
+        installCoordinatorHook(platform, classLoader)
+    }
+
+    private fun installCoordinatorHook(
+        platform: FreeformPlatform,
+        classLoader: ClassLoader,
+    ) {
         try {
-            val controllerClass = classLoader.loadClass(FLEXIBLE_TASK_CONTROLLER_CLASS)
-            val systemReady = controllerClass.getDeclaredMethod("systemReady", Boolean::class.javaPrimitiveType)
+            val anchor = platform.systemServerAnchor
+            val anchorMethod =
+                classLoader
+                    .loadClass(anchor.className)
+                    .findMethod(anchor.methodName, anchor.parameterCount)
             module
-                .hook(systemReady)
+                .hook(anchorMethod)
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
-                .setId("flymefreeform.system.flexible_ready")
+                .setId("flymefreeform.system.freeform_ready")
                 .intercept { chain ->
                     val result = chain.proceed()
-                    val controller = chain.thisObject
-                    if (controller != null && bound.compareAndSet(false, true)) {
-                        startColorOsCoordinator(controller, classLoader)
+                    val anchorInstance = chain.thisObject
+                    if (anchorInstance != null && bound.compareAndSet(false, true)) {
+                        startCoordinator(platform, anchorInstance, classLoader)
                     }
                     result
                 }
@@ -48,27 +54,21 @@ internal class SystemServerHookInstaller(
         }
     }
 
-    private fun startColorOsCoordinator(
-        controller: Any,
+    private fun startCoordinator(
+        platform: FreeformPlatform,
+        anchor: Any,
         classLoader: ClassLoader,
     ) {
         val logger: (Int, String, Throwable?) -> Unit = { priority, code, throwable ->
             module.log(priority, TAG, code, throwable)
         }
-        val windowAccess = ColorOsSystemWindowAccess(controller)
-        val iconRenderer = ColorOsRadialIconRenderer(windowAccess.context.resources, logger)
+        val components = platform.createComponents(anchor, classLoader, logger)
+        if (components == null) {
+            module.log(Log.WARN, TAG, "SYSTEM_FREEFORM_ANCHOR_NOT_READY", null)
+            return
+        }
         FreeformGestureCoordinator(
-            components =
-                FreeformPlatformComponents(
-                    context = windowAccess.context,
-                    windowAccess = windowAccess,
-                    launcher = ColorOsFreeformLauncher(windowAccess.context),
-                    criticalPackages = COLOROS_CRITICAL_PACKAGES,
-                    iconShaper = RadialIconShaper(iconRenderer::shapedIcon),
-                    createMorePanel = { handler ->
-                        ColorOsSidebarClient(windowAccess.context, handler, logger)
-                    },
-                ),
+            components = components,
             classLoader = classLoader,
             configuration = configuration,
             environmentState = environment,
@@ -78,6 +78,5 @@ internal class SystemServerHookInstaller(
 
     private companion object {
         const val TAG = "FlymeFreeform"
-        const val FLEXIBLE_TASK_CONTROLLER_CLASS = "com.android.server.wm.FlexibleTaskController"
     }
 }
