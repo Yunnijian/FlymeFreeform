@@ -74,8 +74,8 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import io.github.mangi.flymefreeform.gesture.CornerSide
 import io.github.mangi.flymefreeform.gesture.RadialGeometry
 import io.github.mangi.flymefreeform.gesture.RadialLayout
-import io.github.mangi.flymefreeform.platform.coloros.AppCatalogSnapshot
-import io.github.mangi.flymefreeform.platform.coloros.RadialAppEntry
+import io.github.mangi.flymefreeform.platform.common.AppCatalogSnapshot
+import io.github.mangi.flymefreeform.platform.common.RadialAppEntry
 import io.github.mangi.flymefreeform.ui.theme.CornerOverlayTheme
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch

@@ -3,7 +3,14 @@ package io.github.mangi.flymefreeform.hook
 import android.util.Log
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
-import io.github.mangi.flymefreeform.platform.coloros.ColorOsFreeformCoordinator
+import io.github.mangi.flymefreeform.platform.coloros.COLOROS_CRITICAL_PACKAGES
+import io.github.mangi.flymefreeform.platform.coloros.ColorOsFreeformLauncher
+import io.github.mangi.flymefreeform.platform.coloros.ColorOsRadialIconRenderer
+import io.github.mangi.flymefreeform.platform.coloros.ColorOsSidebarClient
+import io.github.mangi.flymefreeform.platform.coloros.ColorOsSystemWindowAccess
+import io.github.mangi.flymefreeform.platform.common.FreeformGestureCoordinator
+import io.github.mangi.flymefreeform.platform.common.FreeformPlatformComponents
+import io.github.mangi.flymefreeform.platform.common.RadialIconShaper
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal class SystemServerHookInstaller(
@@ -29,15 +36,7 @@ internal class SystemServerHookInstaller(
                     val result = chain.proceed()
                     val controller = chain.thisObject
                     if (controller != null && bound.compareAndSet(false, true)) {
-                        ColorOsFreeformCoordinator(
-                            controller = controller,
-                            classLoader = classLoader,
-                            configuration = configuration,
-                            environmentState = environment,
-                            logger = { priority, code, throwable ->
-                                module.log(priority, TAG, code, throwable)
-                            },
-                        ).start()
+                        startColorOsCoordinator(controller, classLoader)
                     }
                     result
                 }
@@ -47,6 +46,34 @@ internal class SystemServerHookInstaller(
         } catch (exception: LinkageError) {
             module.log(Log.WARN, TAG, "SYSTEM_FREEFORM_TARGET_LINKAGE_FAILED", exception)
         }
+    }
+
+    private fun startColorOsCoordinator(
+        controller: Any,
+        classLoader: ClassLoader,
+    ) {
+        val logger: (Int, String, Throwable?) -> Unit = { priority, code, throwable ->
+            module.log(priority, TAG, code, throwable)
+        }
+        val windowAccess = ColorOsSystemWindowAccess(controller)
+        val iconRenderer = ColorOsRadialIconRenderer(windowAccess.context.resources, logger)
+        FreeformGestureCoordinator(
+            components =
+                FreeformPlatformComponents(
+                    context = windowAccess.context,
+                    windowAccess = windowAccess,
+                    launcher = ColorOsFreeformLauncher(windowAccess.context),
+                    criticalPackages = COLOROS_CRITICAL_PACKAGES,
+                    iconShaper = RadialIconShaper(iconRenderer::shapedIcon),
+                    createMorePanel = { handler ->
+                        ColorOsSidebarClient(windowAccess.context, handler, logger)
+                    },
+                ),
+            classLoader = classLoader,
+            configuration = configuration,
+            environmentState = environment,
+            logger = logger,
+        ).start()
     }
 
     private companion object {
