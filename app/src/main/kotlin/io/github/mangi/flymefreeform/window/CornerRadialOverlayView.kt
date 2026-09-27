@@ -122,6 +122,7 @@ internal class CornerRadialOverlayView(
     private val metricsState = mutableStateOf<AdaptiveOverlayMetrics?>(null)
     private val layoutState = mutableStateOf(EMPTY_LAYOUT)
     private val selectedIndexState = mutableIntStateOf(NO_SELECTION)
+    private val hoverState = mutableStateOf<List<Float>>(emptyList())
     private val panelModeState = mutableStateOf(false)
     private val backdropOnlyState = mutableStateOf(false)
     private val backdropAlpha = mutableFloatStateOf(1f)
@@ -189,6 +190,7 @@ internal class CornerRadialOverlayView(
         panelImages = catalog.panelApps.associate { entry -> entry.component to entry.icon.asImageBitmap() }
         selectedIndex = null
         selectedIndexState.intValue = NO_SELECTION
+        hoverState.value = emptyList()
         handoffEntryProgress.floatValue = 0f
         handoffLayoutState.value = EMPTY_LAYOUT
         handoffMetricsState.value = null
@@ -442,6 +444,7 @@ internal class CornerRadialOverlayView(
                 radialHandoffProgress = radialHandoffProgress,
                 exitProgress = exitProgress,
                 itemRings = itemRings,
+                hover = if (panelModeState.value) emptyList() else hoverState.value,
                 animationsEnabled = animationsEnabled,
             )
             if (panelModeState.value) {
@@ -475,6 +478,7 @@ internal class CornerRadialOverlayView(
         radialHandoffProgress: Animatable<Float, *>,
         exitProgress: Animatable<Float, *>,
         itemRings: List<Animatable<Float, *>>,
+        hover: List<Float>,
         animationsEnabled: Boolean,
     ) {
         androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
@@ -530,6 +534,7 @@ internal class CornerRadialOverlayView(
                 contentAlpha = alpha,
                 contentScale = if (panelModeState.value) handoffVisuals.contentScale else 1f,
                 itemRings = itemRings,
+                hover = hover,
             )
         }
     }
@@ -541,13 +546,37 @@ internal class CornerRadialOverlayView(
         contentAlpha: Float,
         contentScale: Float,
         itemRings: List<Animatable<Float, *>>,
+        hover: List<Float>,
     ) {
         val direction = if (layout.side == CornerSide.Left) 1f else -1f
         val overshoot = direction * RadialEntryMotion.HORIZONTAL_OVERSHOOT_DP * metrics.pixelsPerBaseDp * motion.horizontalOvershoot
+        val iconRadius = metrics.iconDiameter / 2f
         layout.itemCenters.forEachIndexed { index, destination ->
-            val centerX = layout.origin.x + (destination.x - layout.origin.x) * motion.radialProgress + overshoot
-            val centerY = layout.origin.y + (destination.y - layout.origin.y) * motion.radialProgress
-            val scale = motion.iconScale * contentScale
+            val intensity = hover.getOrNull(index) ?: 0f
+            // 悬停项沿圆心方向向外推一点，让手指位置与图标更贴近。
+            val radialPush = iconRadius * 0.42f * intensity
+            val dx = destination.x - layout.origin.x
+            val dy = destination.y - layout.origin.y
+            val length = kotlin.math.hypot(dx, dy).coerceAtLeast(1f)
+            // 同排邻居被悬停项往两侧挤开，形成“让位”的连续位移。
+            val neighborShift =
+                layout.itemCenters.indices
+                    .filter { it != index }
+                    .sumOf { other ->
+                        val otherCenter = layout.itemCenters[other]
+                        if (kotlin.math.abs(otherCenter.y - destination.y) > iconRadius * 1.1f) {
+                            0.0
+                        } else {
+                            val sign = if (destination.x < otherCenter.x) -1f else 1f
+                            (sign * iconRadius * 0.105f * (hover.getOrNull(other) ?: 0f)).toDouble()
+                        }
+                    }
+                    .toFloat()
+            val centerX =
+                layout.origin.x + dx * motion.radialProgress + overshoot +
+                    (dx / length) * radialPush + neighborShift
+            val centerY = layout.origin.y + dy * motion.radialProgress + (dy / length) * radialPush
+            val scale = motion.iconScale * contentScale * (1f + 0.2f * intensity)
             val ringProgress = itemRings.getOrNull(index)?.value ?: 0f
             val diameter = metrics.iconDiameter * scale
             rotate(motion.rotationDegrees, pivot = Offset(centerX, centerY)) {
@@ -558,6 +587,7 @@ internal class CornerRadialOverlayView(
                 } else {
                     drawMoreItem(centerX, centerY, diameter, contentAlpha)
                 }
+                // 选中确认圈沿用原厚度动画，叠在悬停高亮之上。
                 val strokeWidth = metrics.itemPadding * scale * ringProgress
                 if (strokeWidth > 0f) {
                     drawCircle(
@@ -566,6 +596,17 @@ internal class CornerRadialOverlayView(
                         center = Offset(centerX, centerY),
                         alpha = RadialEntryMotion.SELECTION_RING_ALPHA * contentAlpha,
                         style = Stroke(width = strokeWidth),
+                    )
+                }
+                // 悬停高亮：越接近圆心越亮，滑过时连续过渡。
+                if (intensity > HOVER_GLOW_THRESHOLD) {
+                    val glowWidth = iconRadius * 0.22f * scale
+                    drawCircle(
+                        color = Color.White,
+                        radius = diameter / 2f + glowWidth / 2f,
+                        center = Offset(centerX, centerY),
+                        alpha = HOVER_GLOW_ALPHA * intensity * contentAlpha,
+                        style = Stroke(width = glowWidth),
                     )
                 }
             }
@@ -843,6 +884,13 @@ internal class CornerRadialOverlayView(
         val metrics = metricsState.value ?: return
         val layout = layoutState.value
         if (layout.itemCenters.isEmpty()) return
+        hoverState.value =
+            io.github.mangi.flymefreeform.gesture.RadialGeometry.hoverIntensities(
+                layout = layout,
+                x = latestX,
+                y = latestY,
+                iconDiameter = metrics.radial.iconDiameter,
+            )
         val next =
             RadialGeometry.selection(
                 layout = layout,
@@ -1145,6 +1193,9 @@ internal class CornerRadialOverlayView(
                 itemCenters = emptyList(),
             )
         const val NO_SELECTION = -1
+        /** 低于此强度不画悬停高亮，避免整圈都泛白。 */
+        const val HOVER_GLOW_THRESHOLD = 0.08f
+        const val HOVER_GLOW_ALPHA = 150f / 255f
         const val PLATE_ALPHA = 235f / 255f
         const val PANEL_SURFACE_ALPHA = 253f / 255f
         const val MORE_DOT_RADIUS_FRACTION = 0.052f
