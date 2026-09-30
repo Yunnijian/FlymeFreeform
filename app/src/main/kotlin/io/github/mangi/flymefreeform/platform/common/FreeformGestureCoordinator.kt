@@ -14,6 +14,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.view.WindowManager
+import io.github.mangi.flymefreeform.config.screenShortEdgeDp
 import io.github.mangi.flymefreeform.config.ModuleSettingsSnapshot
 import io.github.mangi.flymefreeform.gesture.AdaptiveCornerGestureConfig
 import io.github.mangi.flymefreeform.gesture.CornerGestureConfig
@@ -56,7 +57,7 @@ internal class FreeformGestureCoordinator(
         AppCatalog(context, catalogExecutor, components.iconShaper) { snapshot ->
             handler.post {
                 // 后台任务完成时配置可能已再次变化，旧结果不得覆盖新外观。
-                if (snapshot.matches(lastSettings)) {
+                if (snapshot.matches(lastSettings, screenShortEdgeDp(context))) {
                     catalogSnapshot = snapshot
                     overlay?.updateRadialAppearance(snapshot)
                 }
@@ -118,12 +119,13 @@ internal class FreeformGestureCoordinator(
     private fun applySettings(settings: ModuleSettingsSnapshot) {
         val selectionChanged =
             settings.pinsSaved != lastSettings.pinsSaved ||
-                settings.pinnedComponents != lastSettings.pinnedComponents
+                settings.pinnedComponents != lastSettings.pinnedComponents ||
+                settings.radialMenu != lastSettings.radialMenu
         lastSettings = settings
         if (environmentState.isGestureAllowed(refreshKeyguard = true) && (settings.leftCornerEnabled || settings.rightCornerEnabled)) {
             val resuming = !pointerRegistered
             registerPointerListener()
-            if (resuming || selectionChanged || !catalogSnapshot.matches(settings) || catalogSnapshot.radialApps.isEmpty()) {
+            if (resuming || selectionChanged || !catalogSnapshot.matches(settings, screenShortEdgeDp(context)) || catalogSnapshot.radialApps.isEmpty()) {
                 appCatalog.refresh(settings, reloadApps = resuming || selectionChanged || catalogSnapshot.radialApps.isEmpty())
             }
         } else {
