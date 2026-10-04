@@ -5,14 +5,16 @@
 <h1 align="center">Flyme 小窗（FlymeFreeform）</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/ROM-ColorOS-00A862" alt="面向 ColorOS" />
+  <img src="https://img.shields.io/badge/ROM-ColorOS_%7C_HyperOS-00A862" alt="面向 ColorOS 与 HyperOS" />
   <img src="https://img.shields.io/badge/minSdk-35-3DDC84?logo=android" alt="最低 API 35" />
   <img src="https://img.shields.io/badge/libxposed-API_102-4285F4" alt="libxposed API 102" />
 </p>
 
 魅族 Flyme 的小窗，将“呼之即来，挥之即去”做得轻巧又顺手。几次简单的滑动与轻点，便能处理眼前的小事，这份细腻的巧思让人愉悦。
 
-本项目通过 Xposed 模块，将这份即用即走的快捷交互带到 ColorOS。
+本项目通过 Xposed 模块，将这份即用即走的快捷交互带到 ColorOS 与 HyperOS。
+
+> 本仓库 fork 自 [Mangi-11/FlymeFreeform](https://github.com/Mangi-11/FlymeFreeform)，在其基础上增加 HyperOS 平台适配与扇形布局增强。代码归属与第三方资源声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ## 预览
 
@@ -34,12 +36,14 @@
 
 ## 设计与实现
 
-本项目借鉴 Flyme 的快捷交互，复刻扇形菜单的展开动画与滑选体验；“更多”窗口复用 ColorOS 智能侧边栏的“全部”面板，应用窗口继续由系统已有的自由窗能力管理。
+本项目借鉴 Flyme 的快捷交互，复刻扇形菜单的展开动画与滑选体验；“更多”窗口在 ColorOS 上复用智能侧边栏的“全部”面板（HyperOS 使用内置应用网格），应用窗口继续由系统已有的自由窗能力管理。
 
-完整照搬另一套系统的界面，容易造成视觉与操作上的割裂；另建一套小窗能力，也会增加系统适配与后续维护的成本。因此，我们保留 Flyme 的交互巧思，同时沿用 ColorOS 的界面与窗口能力，让这份体验自然融入当前系统。
+完整照搬另一套系统的界面，容易造成视觉与操作上的割裂；另建一套小窗能力，也会增加系统适配与后续维护的成本。因此，我们保留 Flyme 的交互巧思，同时沿用系统已有的界面与窗口能力，让这份体验自然融入当前系统。
 
 ## 致谢
 
+- [Mangi-11/FlymeFreeform](https://github.com/Mangi-11/FlymeFreeform)：本项目所 fork 的上游项目。
+- [Minessential](https://github.com/Minessential)：上游 PR #6 作者，多圈扇形布局与同圈图标间距的原始实现。
 - [Flyme](https://www.flyme.com/)：感谢其小窗细腻的设计与交互巧思。
 - [libxposed API](https://github.com/libxposed/api)：现代 Xposed API。
 - [Miuix](https://github.com/compose-miuix-ui/miuix)：UI 组件库。
